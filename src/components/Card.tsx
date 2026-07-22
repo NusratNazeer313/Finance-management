@@ -1,0 +1,26 @@
+import React from 'react';
+import { View, StyleSheet, ViewStyle } from 'react-native';
+import { colors } from '../theme/colors';
+import { borderRadius, spacing } from '../theme/spacing';
+
+interface CardProps {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  padding?: number;
+}
+
+export const Card: React.FC<CardProps> = ({ children, style, padding = spacing.md }) => {
+  return <View style={[styles.card, { padding }, style]}>{children}</View>;
+};
+
+const styles = StyleSheet.create({
+  card: {
+    backgroundColor: colors.card,
+    borderRadius: borderRadius.lg,
+    shadowColor: colors.black,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+});

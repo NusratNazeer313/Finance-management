@@ -1,0 +1,1 @@
+/Users/mac/Documents/full-stack/Finance-management/android/app/build/intermediates/cxx/Debug/123m584y/obj/armeabi-v7a
