@@ -15,8 +15,10 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { Card } from '../../components/Card';
 import { ProgressBar } from '../../components/ProgressBar';
 import { Button } from '../../components/Button';
+import { Icon, iconFromCategory, isIconName } from '../../components/Icon';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
 import { formatCurrency, getProgress } from '../../utils/format';
 import { Goal } from '../../types';
 import { AppTabParamList, RootStackParamList } from '../../navigation/types';
@@ -53,7 +55,7 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Savings Goals" />
+      <ScreenHeader title="Savings goals" subtitle="Track progress toward targets" />
 
       {loading && goals.length === 0 ? (
         <View style={styles.centered}>
@@ -73,12 +75,23 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
           {goals.map(goal => {
             const progress = getProgress(goal.current, goal.target);
+            const accent = goal.color?.startsWith('#') ? goal.color : colors.primaryLight;
+            // Match the goal's name first ("New Car" → car), then its stored icon.
+            const iconName = iconFromCategory(
+              goal.name,
+              isIconName(goal.icon) ? goal.icon : 'target',
+            );
 
             return (
               <Card key={goal.id} style={styles.goalCard}>
+                <View
+                  accessible
+                  accessibilityLabel={`${goal.name}: ${formatCurrency(goal.current)} saved of ${formatCurrency(
+                    goal.target,
+                  )}, ${progress.toFixed(0)} percent`}>
                 <View style={styles.goalHeader}>
-                  <View style={[styles.goalIcon, { backgroundColor: goal.color + '20' }]}>
-                    <Text style={styles.goalEmoji}>{goal.icon}</Text>
+                  <View style={[styles.goalIcon, { backgroundColor: accent + '20' }]}>
+                    <Icon name={iconName} size={22} color={accent} />
                   </View>
                   <View style={styles.goalInfo}>
                     <Text style={styles.goalName}>{goal.name}</Text>
@@ -86,14 +99,17 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
                       {formatCurrency(goal.current)} of {formatCurrency(goal.target)}
                     </Text>
                   </View>
-                  <Text style={[styles.goalPercent, { color: goal.color }]}>
+                  <Text style={[styles.goalPercent, { color: accent }]}>
                     {progress.toFixed(0)}%
                   </Text>
                 </View>
-                <ProgressBar progress={progress} color={goal.color} height={10} />
+                <ProgressBar progress={progress} color={accent} height={8} />
                 <Text style={styles.goalRemaining}>
-                  {formatCurrency(goal.target - goal.current)} remaining
+                  {goal.current >= goal.target
+                    ? 'Goal reached 🎉'
+                    : `${formatCurrency(goal.target - goal.current)} to go`}
                 </Text>
+                </View>
               </Card>
             );
           })}
@@ -101,7 +117,7 @@ export const GoalsScreen: React.FC<Props> = ({ navigation }) => {
       )}
 
       <View style={styles.fabContainer}>
-        <Button title="+ Create Goal" onPress={() => navigation.navigate('CreateGoal')} />
+        <Button title="Create goal" onPress={() => navigation.navigate('CreateGoal')} />
       </View>
     </View>
   );
@@ -129,7 +145,7 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: spacing.lg,
   },
   goalCard: {
     marginBottom: spacing.md,
@@ -140,42 +156,39 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   goalIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
-  },
-  goalEmoji: {
-    fontSize: 26,
   },
   goalInfo: {
     flex: 1,
   },
   goalName: {
+    ...typography.bodyStrong,
     fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
     marginBottom: 4,
   },
   goalAmounts: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.caption,
   },
   goalPercent: {
+    ...typography.moneySm,
     fontSize: 18,
-    fontWeight: '700',
   },
   goalRemaining: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    ...typography.caption,
     marginTop: spacing.sm,
   },
+  // A footer bar rather than a floating button, so it never covers list items.
   fabContainer: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
-    right: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm + 4,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
 });

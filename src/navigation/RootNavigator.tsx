@@ -8,6 +8,9 @@ import { AddTransactionScreen } from '../screens/forms/AddTransactionScreen';
 import { CreateBudgetScreen } from '../screens/forms/CreateBudgetScreen';
 import { CreateGoalScreen } from '../screens/forms/CreateGoalScreen';
 import { AddBillScreen } from '../screens/forms/AddBillScreen';
+import { TransactionDetailScreen } from '../screens/main/TransactionDetailScreen';
+import { NotificationsScreen } from '../screens/main/NotificationsScreen';
+import { EditProfileScreen } from '../screens/main/EditProfileScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -29,6 +32,9 @@ export const RootNavigator: React.FC<RootNavigatorProps> = ({ onLogout }) => {
       <Stack.Screen name="CreateBudget" component={CreateBudgetScreen} />
       <Stack.Screen name="CreateGoal" component={CreateGoalScreen} />
       <Stack.Screen name="AddBill" component={AddBillScreen} />
+      <Stack.Screen name="TransactionDetail" component={TransactionDetailScreen} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="EditProfile" component={EditProfileScreen} />
     </Stack.Navigator>
   );
 };

@@ -1,26 +1,40 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { colors } from '../theme/colors';
 import { borderRadius, spacing } from '../theme/spacing';
 
 interface CardProps {
   children: React.ReactNode;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
   padding?: number;
+  elevated?: boolean;
 }
 
-export const Card: React.FC<CardProps> = ({ children, style, padding = spacing.md }) => {
-  return <View style={[styles.card, { padding }, style]}>{children}</View>;
+export const Card: React.FC<CardProps> = ({
+  children,
+  style,
+  padding = spacing.md,
+  elevated = true,
+}) => {
+  return (
+    <View style={[styles.card, elevated && styles.elevated, { padding }, style]}>
+      {children}
+    </View>
+  );
 };
 
 const styles = StyleSheet.create({
   card: {
     backgroundColor: colors.card,
     borderRadius: borderRadius.lg,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  elevated: {
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 2,
   },
 });

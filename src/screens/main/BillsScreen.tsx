@@ -7,15 +7,19 @@ import {
   ActivityIndicator,
   RefreshControl,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
+import { Icon, iconFromCategory } from '../../components/Icon';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { formatCurrency } from '../../utils/format';
+import { typography } from '../../theme/typography';
+import { formatCurrency, formatDueDate } from '../../utils/format';
+import { useToast } from '../../components/Toast';
 import { Bill } from '../../types';
 import { RootStackParamList } from '../../navigation/types';
 import { billsApi } from '../../services/finance';
@@ -25,16 +29,18 @@ type Props = {
 };
 
 const statusConfig = {
-  today: { label: 'Today', color: colors.warning, bg: colors.warningLight },
+  today: { label: 'Due today', color: colors.warning, bg: colors.warningLight },
   tomorrow: { label: 'Tomorrow', color: colors.expense, bg: colors.expenseLight },
-  upcoming: { label: 'Upcoming', color: colors.textSecondary, bg: colors.background },
+  upcoming: { label: 'Upcoming', color: colors.textSecondary, bg: colors.surfaceMuted },
   overdue: { label: 'Overdue', color: colors.danger, bg: colors.dangerLight },
+  paid: { label: 'Paid', color: colors.income, bg: colors.incomeLight },
 };
 
 export const BillsScreen: React.FC<Props> = ({ navigation }) => {
   const [bills, setBills] = useState<Bill[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const load = useCallback(async () => {
     try {
@@ -47,6 +53,44 @@ export const BillsScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
+  const openActions = (bill: Bill) => {
+    const remove = () =>
+      Alert.alert('Delete bill?', `${bill.name} will be removed from your reminders.`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await billsApi.remove(bill.id);
+              showToast('Bill deleted');
+              load();
+            } catch (err) {
+              Alert.alert('Couldn’t delete', err instanceof Error ? err.message : 'Try again.');
+            }
+          },
+        },
+      ]);
+
+    const togglePaid = async () => {
+      try {
+        await billsApi.setPaid(bill.id, !bill.paid);
+        showToast(
+          bill.paid ? `${bill.name} marked unpaid` : `${bill.name} paid — added to expenses`,
+        );
+        load();
+      } catch (err) {
+        Alert.alert('Couldn’t update', err instanceof Error ? err.message : 'Try again.');
+      }
+    };
+
+    Alert.alert(bill.name, `${formatCurrency(bill.amount)} · ${formatDueDate(bill.dueDate)}`, [
+      { text: 'Delete', style: 'destructive', onPress: remove },
+      { text: 'Cancel', style: 'cancel' },
+      { text: bill.paid ? 'Mark unpaid' : 'Mark as paid', onPress: togglePaid },
+    ]);
+  };
+
   useFocusEffect(
     useCallback(() => {
       load();
@@ -55,7 +99,7 @@ export const BillsScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Bills & Reminders" />
+      <ScreenHeader title="Bills" subtitle="Upcoming payments & reminders" showBack />
 
       {loading && bills.length === 0 ? (
         <View style={styles.centered}>
@@ -73,18 +117,36 @@ export const BillsScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+          {bills.length === 0 && (
+            <Text style={styles.empty}>No bills yet. Add one to get reminders before it’s due.</Text>
+          )}
+          {bills.length > 0 && (
+            <Text style={styles.tip}>Tap a bill to mark it paid or delete it.</Text>
+          )}
           {bills.map(bill => {
             const status = statusConfig[bill.status];
+            const iconName = iconFromCategory(bill.name, 'bills');
 
             return (
-              <Card key={bill.id} style={styles.billCard}>
+              <TouchableOpacity
+                key={bill.id}
+                activeOpacity={0.7}
+                onPress={() => openActions(bill)}
+                accessibilityRole="button"
+                accessibilityLabel={`${bill.name}, ${formatCurrency(bill.amount)}, ${
+                  bill.paid ? 'paid' : formatDueDate(bill.dueDate)
+                }`}
+                accessibilityHint="Mark as paid or delete">
+              <Card style={[styles.billCard, bill.paid && styles.billPaid]}>
                 <View style={styles.billRow}>
                   <View style={styles.billIcon}>
-                    <Text style={styles.billEmoji}>{bill.icon}</Text>
+                    <Icon name={iconName} size={18} color={colors.primary} />
                   </View>
                   <View style={styles.billInfo}>
                     <Text style={styles.billName}>{bill.name}</Text>
-                    <Text style={styles.billDate}>Due: {bill.dueDate}</Text>
+                    <Text style={styles.billDate}>
+                      {bill.paid ? `Paid · was ${formatDueDate(bill.dueDate).toLowerCase()}` : formatDueDate(bill.dueDate)}
+                    </Text>
                   </View>
                   <View style={styles.billRight}>
                     <Text style={styles.billAmount}>{formatCurrency(bill.amount)}</Text>
@@ -96,13 +158,14 @@ export const BillsScreen: React.FC<Props> = ({ navigation }) => {
                   </View>
                 </View>
               </Card>
+              </TouchableOpacity>
             );
           })}
         </ScrollView>
       )}
 
       <View style={styles.fabContainer}>
-        <Button title="+ Add Bill" onPress={() => navigation.navigate('AddBill')} />
+        <Button title="Add bill" onPress={() => navigation.navigate('AddBill')} />
       </View>
     </View>
   );
@@ -130,7 +193,19 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: spacing.lg,
+  },
+  billPaid: {
+    opacity: 0.6,
+  },
+  empty: {
+    ...typography.caption,
+    textAlign: 'center',
+    marginTop: spacing.xl,
+  },
+  tip: {
+    ...typography.caption,
+    marginBottom: spacing.sm,
   },
   billCard: {
     marginBottom: spacing.md,
@@ -140,52 +215,48 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   billIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: colors.background,
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: spacing.md,
-  },
-  billEmoji: {
-    fontSize: 20,
   },
   billInfo: {
     flex: 1,
   },
   billName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
+    ...typography.bodyStrong,
     marginBottom: 2,
   },
   billDate: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.caption,
   },
   billRight: {
     alignItems: 'flex-end',
   },
   billAmount: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...typography.moneySm,
     color: colors.text,
     marginBottom: 4,
   },
   statusBadge: {
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   statusText: {
     fontSize: 11,
     fontWeight: '600',
   },
+  // A footer bar rather than a floating button, so it never covers list items.
   fabContainer: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
-    right: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm + 4,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
 });

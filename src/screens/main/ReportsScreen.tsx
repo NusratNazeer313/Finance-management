@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native';
-import Svg, { Rect, Circle } from 'react-native-svg';
+import Svg, { Rect, Circle, G, Text as SvgText } from 'react-native-svg';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -76,23 +76,35 @@ export const ReportsScreen: React.FC<Props> = () => {
     );
   }
 
-  const expenseChartData = data!.expenseChartData;
-  const categoryBreakdown = data!.categoryBreakdown;
+  const months = data!.expenseChartData.map(d => d.month);
+  const expenseChartData =
+    activeTab === 'expense'
+      ? data!.expenseChartData
+      : activeTab === 'income'
+      ? data!.incomeChartData
+      : data!.netWorthChartData.map((amount, i) => ({ month: months[i] ?? '', amount }));
+  const categoryBreakdown =
+    activeTab === 'expense' ? data!.categoryBreakdown : activeTab === 'income' ? data!.incomeBreakdown : [];
   const maxAmount = Math.max(...expenseChartData.map(d => d.amount), 1);
   const barWidth = (screenWidth - 80) / expenseChartData.length - 12;
-  const chartHeight = 160;
+  const chartHeight = 140;
+  const valueLabelSpace = 18;
+  const shortMoney = (n: number) =>
+    Math.abs(n) >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${Math.round(n)}`;
   const totalCategory = categoryBreakdown.reduce((sum, c) => sum + c.amount, 0) || 1;
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Reports" subtitle="May 2024" />
+      <ScreenHeader title="Reports" showBack />
 
       <View style={styles.tabRow}>
         {tabs.map(tab => (
           <TouchableOpacity
             key={tab.key}
             style={[styles.tab, activeTab === tab.key && styles.tabActive]}
-            onPress={() => setActiveTab(tab.key)}>
+            onPress={() => setActiveTab(tab.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: activeTab === tab.key }}>
             <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
               {tab.label}
             </Text>
@@ -106,7 +118,11 @@ export const ReportsScreen: React.FC<Props> = () => {
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
         <Card style={styles.totalCard}>
           <Text style={styles.totalLabel}>
-            Total {activeTab === 'expense' ? 'Spent' : activeTab === 'income' ? 'Earned' : 'Net Worth'}
+            {activeTab === 'expense'
+              ? 'Spent this month'
+              : activeTab === 'income'
+              ? 'Earned this month'
+              : 'Net worth today'}
           </Text>
           <Text style={styles.totalAmount}>
             {formatCurrency(
@@ -119,37 +135,60 @@ export const ReportsScreen: React.FC<Props> = () => {
           </Text>
         </Card>
 
-        <Text style={styles.sectionTitle}>Monthly Trend</Text>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {activeTab === 'networth' ? 'Net worth' : 'Monthly trend'} · last 6 months
+        </Text>
         <Card style={styles.chartCard}>
-          <Svg width={screenWidth - 32} height={chartHeight + 30}>
+          <View
+            accessible
+            accessibilityLabel={`Bar chart. ${expenseChartData
+              .map(d => `${d.month}: ${formatCurrency(d.amount)}`)
+              .join(', ')}`}>
+          <Svg width={screenWidth - 32} height={chartHeight + valueLabelSpace + 20}>
             {expenseChartData.map((item, index) => {
-              const barHeight = (item.amount / maxAmount) * chartHeight;
+              const barHeight = Math.max((item.amount / maxAmount) * chartHeight, 2);
               const x = index * (barWidth + 12) + 20;
-              const y = chartHeight - barHeight + 10;
+              const y = chartHeight - barHeight + valueLabelSpace + 4;
+              const isCurrent = index === expenseChartData.length - 1;
 
               return (
-                <Rect
-                  key={item.month}
-                  x={x}
-                  y={y}
-                  width={barWidth}
-                  height={barHeight}
-                  rx={6}
-                  fill={index === expenseChartData.length - 1 ? colors.primary : colors.primaryLight}
-                />
+                <G key={`${item.month}-${index}`}>
+                  <SvgText
+                    x={x + barWidth / 2}
+                    y={y - 6}
+                    fontSize={11}
+                    fontWeight={isCurrent ? '700' : '500'}
+                    fill={colors.textSecondary}
+                    textAnchor="middle">
+                    {shortMoney(item.amount)}
+                  </SvgText>
+                  <Rect
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={barHeight}
+                    rx={6}
+                    fill={isCurrent ? colors.primary : colors.primaryLight}
+                  />
+                </G>
               );
             })}
           </Svg>
           <View style={styles.chartLabels}>
-            {expenseChartData.map(item => (
-              <Text key={item.month} style={styles.chartLabel}>
+            {expenseChartData.map((item, i) => (
+              <Text key={`${item.month}-${i}`} style={styles.chartLabel}>
                 {item.month}
               </Text>
             ))}
           </View>
+          </View>
         </Card>
 
-        <Text style={styles.sectionTitle}>By Category</Text>
+        {categoryBreakdown.length > 0 && (
+        <>
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {activeTab === 'income' ? 'Income by source' : 'Spending by category'} · this month
+        </Text>
         <Card style={styles.donutCard}>
           <View style={styles.donutRow}>
             <Svg width={120} height={120} viewBox="0 0 120 120">
@@ -182,15 +221,26 @@ export const ReportsScreen: React.FC<Props> = () => {
 
             <View style={styles.legendContainer}>
               {categoryBreakdown.map(cat => (
-                <View key={cat.category} style={styles.legendItem}>
+                <View
+                  key={cat.category}
+                  style={styles.legendItem}
+                  accessible
+                  accessibilityLabel={`${cat.category}: ${formatCurrency(cat.amount)}, ${Math.round(
+                    (cat.amount / totalCategory) * 100,
+                  )} percent`}>
                   <View style={[styles.legendDot, { backgroundColor: cat.color }]} />
-                  <Text style={styles.legendText}>{cat.category}</Text>
+                  <Text style={styles.legendText}>
+                    {cat.category}{' '}
+                    <Text style={styles.legendPct}>{Math.round((cat.amount / totalCategory) * 100)}%</Text>
+                  </Text>
                   <Text style={styles.legendAmount}>{formatCurrency(cat.amount)}</Text>
                 </View>
               ))}
             </View>
           </View>
         </Card>
+        </>
+        )}
       </ScrollView>
     </View>
   );
@@ -215,6 +265,10 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '600',
   },
+  legendPct: {
+    color: colors.textSecondary,
+    fontWeight: '400',
+  },
   tabRow: {
     flexDirection: 'row',
     paddingHorizontal: spacing.lg,
@@ -224,20 +278,23 @@ const styles = StyleSheet.create({
   tab: {
     flex: 1,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 10,
     backgroundColor: colors.white,
     alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   tabActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   tabText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   tabTextActive: {
-    color: colors.white,
+    color: colors.textOnPrimary,
   },
   scroll: {
     paddingHorizontal: spacing.lg,
@@ -248,6 +305,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     alignItems: 'center',
     paddingVertical: spacing.lg,
+    borderRadius: 18,
   },
   totalLabel: {
     fontSize: 14,

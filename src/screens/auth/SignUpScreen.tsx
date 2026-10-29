@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
-  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../../components/Button';
@@ -17,6 +16,8 @@ import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
 import { AuthStackParamList } from '../../navigation/types';
 import { authApi } from '../../services/finance';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'SignUp'>;
@@ -28,22 +29,35 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    form?: string;
+  }>({});
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
+
+  const clear = (field: keyof typeof errors) =>
+    setErrors(e => ({ ...e, [field]: undefined, form: undefined }));
 
   const handleSignUp = async () => {
-    if (!name.trim() || !email.trim() || !password) {
-      Alert.alert('Missing fields', 'Please fill in all fields.');
-      return;
-    }
+    const found: typeof errors = {};
+    if (!name.trim()) found.name = 'Enter your name';
+    if (!email.trim()) found.email = 'Enter your email';
+    else if (!EMAIL_RE.test(email.trim())) found.email = 'Enter a valid email, like name@example.com';
+    if (password.length < 8) found.password = 'Use at least 8 characters';
+    setErrors(found);
+    if (Object.keys(found).length) return;
 
     try {
       setLoading(true);
       await authApi.register(name.trim(), email.trim(), password);
       onLogin();
     } catch (error) {
-      Alert.alert(
-        'Sign up failed',
-        error instanceof Error ? error.message : 'Unable to create account',
-      );
+      setErrors({
+        form: error instanceof Error ? error.message : 'Unable to create account. Try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -57,7 +71,11 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, onLogin }) => {
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+        <TouchableOpacity
+          style={styles.backBtn}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Go back">
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
 
@@ -67,57 +85,75 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, onLogin }) => {
         </View>
 
         <View style={styles.form}>
+          {errors.form && (
+            <View style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              <Text style={styles.formErrorText}>{errors.form}</Text>
+            </View>
+          )}
           <Input
-            label="Full Name"
+            label="Full name"
             placeholder="Enter your name"
             value={name}
-            onChangeText={setName}
+            onChangeText={v => {
+              setName(v);
+              clear('name');
+            }}
             autoCapitalize="words"
+            autoComplete="name"
+            error={errors.name}
+            returnKeyType="next"
+            onSubmitEditing={() => emailRef.current?.focus()}
+            blurOnSubmit={false}
           />
           <Input
+            ref={emailRef}
             label="Email"
-            placeholder="Enter your email"
+            placeholder="name@example.com"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={v => {
+              setEmail(v);
+              clear('email');
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            error={errors.email}
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            blurOnSubmit={false}
           />
           <Input
+            ref={passwordRef}
             label="Password"
             placeholder="Create a password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={v => {
+              setPassword(v);
+              clear('password');
+            }}
             secureTextEntry
+            autoComplete="new-password"
+            error={errors.password}
+            hint="At least 8 characters"
+            returnKeyType="go"
+            onSubmitEditing={handleSignUp}
           />
 
-          {loading ? (
-            <ActivityIndicator color={colors.primary} style={styles.signUpBtn} />
-          ) : (
-            <Button title="Sign Up" onPress={handleSignUp} style={styles.signUpBtn} />
-          )}
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialBtn}>
-              <Text style={styles.socialIcon}>G</Text>
-              <Text style={styles.socialText}>Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn}>
-              <Text style={styles.socialIcon}></Text>
-              <Text style={styles.socialText}>Apple</Text>
-            </TouchableOpacity>
-          </View>
+          <Button
+            title="Create account"
+            onPress={handleSignUp}
+            loading={loading}
+            style={styles.signUpBtn}
+          />
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Already have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-            <Text style={styles.footerLink}>Login</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Login')}
+            accessibilityRole="link"
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
+            <Text style={styles.footerLink}>Sign in</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -126,6 +162,17 @@ export const SignUpScreen: React.FC<Props> = ({ navigation, onLogin }) => {
 };
 
 const styles = StyleSheet.create({
+  formError: {
+    backgroundColor: colors.dangerLight,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  formErrorText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   container: {
     flex: 1,
     backgroundColor: colors.white,

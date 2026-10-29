@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { colors } from '../theme/colors';
 import { borderRadius, spacing } from '../theme/spacing';
+import { typography } from '../theme/typography';
 
 interface ButtonProps {
   title: string;
@@ -33,17 +34,14 @@ export const Button: React.FC<ButtonProps> = ({
 
   return (
     <TouchableOpacity
-      style={[
-        styles.base,
-        styles[variant],
-        isDisabled && styles.disabled,
-        style,
-      ]}
+      style={[styles.base, styles[variant], isDisabled && styles.disabled, style]}
       onPress={onPress}
       disabled={isDisabled}
-      activeOpacity={0.8}>
+      activeOpacity={0.85}>
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? colors.primary : colors.white} />
+        <ActivityIndicator
+          color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.white}
+        />
       ) : (
         <Text style={[styles.text, styles[`${variant}Text`], textStyle]}>{title}</Text>
       )}
@@ -53,7 +51,7 @@ export const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   base: {
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.md - 2,
     paddingHorizontal: spacing.lg,
     borderRadius: borderRadius.md,
     alignItems: 'center',
@@ -67,28 +65,28 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary,
   },
   outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
   },
   ghost: {
     backgroundColor: 'transparent',
   },
   disabled: {
-    opacity: 0.5,
+    opacity: 0.45,
   },
   text: {
+    ...typography.bodyStrong,
     fontSize: 16,
-    fontWeight: '600',
   },
   primaryText: {
-    color: colors.white,
+    color: colors.textOnPrimary,
   },
   secondaryText: {
     color: colors.white,
   },
   outlineText: {
-    color: colors.primary,
+    color: colors.text,
   },
   ghostText: {
     color: colors.primary,

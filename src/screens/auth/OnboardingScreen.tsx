@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../../components/Button';
+import { Icon } from '../../components/Icon';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
-import { onboardingSlides } from '../../data/mockData';
+import { typography } from '../../theme/typography';
+import { ONBOARDING_SLIDES } from '../../constant/onboarding';
 import { AuthStackParamList } from '../../navigation/types';
 
 type Props = {
@@ -13,10 +15,10 @@ type Props = {
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const slide = onboardingSlides[currentIndex];
+  const slide = ONBOARDING_SLIDES[currentIndex];
 
   const handleNext = () => {
-    if (currentIndex < onboardingSlides.length - 1) {
+    if (currentIndex < ONBOARDING_SLIDES.length - 1) {
       setCurrentIndex(currentIndex + 1);
     } else {
       navigation.replace('Login');
@@ -35,13 +37,16 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.content}>
         <View style={styles.illustration}>
-          <Text style={styles.illustrationIcon}>{slide.icon}</Text>
+          <View style={styles.illustrationInner}>
+            <Icon name={slide.icon} size={48} color={colors.primary} />
+          </View>
         </View>
+        <Text style={styles.brand}>Finance Manager</Text>
         <Text style={styles.title}>{slide.title}</Text>
         <Text style={styles.description}>{slide.description}</Text>
 
         <View style={styles.dots}>
-          {onboardingSlides.map((_, index) => (
+          {ONBOARDING_SLIDES.map((_, index) => (
             <View
               key={index}
               style={[styles.dot, index === currentIndex && styles.dotActive]}
@@ -52,7 +57,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.footer}>
         <Button
-          title={currentIndex === onboardingSlides.length - 1 ? 'Get Started' : 'Next'}
+          title={currentIndex === ONBOARDING_SLIDES.length - 1 ? 'Get started' : 'Continue'}
           onPress={handleNext}
         />
       </View>
@@ -63,7 +68,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
   },
   skipBtn: {
@@ -72,7 +77,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   skipText: {
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textSecondary,
     fontWeight: '500',
   },
@@ -83,29 +88,38 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
   },
   illustration: {
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: colors.background,
+    width: 180,
+    height: 180,
+    borderRadius: 40,
+    backgroundColor: colors.primarySoft,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.xl,
   },
-  illustrationIcon: {
-    fontSize: 80,
+  illustrationInner: {
+    width: 96,
+    height: 96,
+    borderRadius: 28,
+    backgroundColor: colors.white,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  brand: {
+    ...typography.label,
+    color: colors.primaryLight,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
+    ...typography.title,
     textAlign: 'center',
     marginBottom: spacing.md,
   },
   description: {
-    fontSize: 16,
+    ...typography.body,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 24,
     paddingHorizontal: spacing.md,
   },
   dots: {
@@ -117,11 +131,11 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderStrong,
   },
   dotActive: {
     backgroundColor: colors.primary,
-    width: 24,
+    width: 22,
   },
   footer: {
     paddingBottom: spacing.xxl,

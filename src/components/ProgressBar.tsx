@@ -40,7 +40,7 @@ export const ProgressBar: React.FC<ProgressBarProps> = ({
 
 const styles = StyleSheet.create({
   track: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.surfaceMuted,
     overflow: 'hidden',
   },
   fill: {},

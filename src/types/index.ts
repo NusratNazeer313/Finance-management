@@ -8,6 +8,7 @@ export interface Transaction {
   type: TransactionType;
   date: string;
   icon: string;
+  notes?: string;
 }
 
 export interface Budget {
@@ -33,8 +34,25 @@ export interface Bill {
   name: string;
   amount: number;
   dueDate: string;
-  status: 'today' | 'tomorrow' | 'upcoming' | 'overdue';
+  status: 'today' | 'tomorrow' | 'upcoming' | 'overdue' | 'paid';
+  paid: boolean;
   icon: string;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  icon: string;
+  type: TransactionType;
+}
+
+export interface AppNotification {
+  id: string;
+  type: 'alert' | 'reminder';
+  title: string;
+  body: string;
+  target: 'Bills' | 'Budget';
+  read: boolean;
 }
 
 export interface Insight {

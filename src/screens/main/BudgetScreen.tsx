@@ -15,8 +15,10 @@ import { ScreenHeader } from '../../components/ScreenHeader';
 import { Card } from '../../components/Card';
 import { ProgressBar } from '../../components/ProgressBar';
 import { Button } from '../../components/Button';
+import { Icon, colorForCategory, iconFromCategory } from '../../components/Icon';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
 import { formatCurrency, getProgress } from '../../utils/format';
 import { Budget } from '../../types';
 import { AppTabParamList, RootStackParamList } from '../../navigation/types';
@@ -56,7 +58,10 @@ export const BudgetScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Budget Planner" subtitle="May 2024" />
+      <ScreenHeader
+        title="Budget"
+        subtitle={`${new Date().toLocaleDateString('en-US', { month: 'long' })} · resets monthly`}
+      />
 
       {loading && budgets.length === 0 ? (
         <View style={styles.centered}>
@@ -74,54 +79,92 @@ export const BudgetScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
-          <Card style={styles.overviewCard}>
-            <Text style={styles.overviewLabel}>Total Budget</Text>
+          <View
+            style={styles.overviewCard}
+            accessible
+            accessibilityLabel={`Total budget ${formatCurrency(totalBudget)}, spent ${formatCurrency(
+              totalSpent,
+            )}, ${
+              totalSpent > totalBudget
+                ? `over by ${formatCurrency(totalSpent - totalBudget)}`
+                : `${formatCurrency(totalBudget - totalSpent)} left`
+            }`}>
+            <Text style={styles.overviewLabel}>Total allocated</Text>
             <Text style={styles.overviewAmount}>{formatCurrency(totalBudget)}</Text>
             <View style={styles.overviewRow}>
-              <Text style={styles.overviewSpent}>
-                Spent: <Text style={{ color: colors.expense }}>{formatCurrency(totalSpent)}</Text>
+              <Text style={styles.overviewMeta}>
+                Spent{' '}
+                <Text style={{ color: colors.expense, fontWeight: '700' }}>
+                  {formatCurrency(totalSpent)}
+                </Text>
               </Text>
-              <Text style={styles.overviewRemaining}>
-                Remaining:{' '}
-                <Text style={{ color: colors.income }}>
-                  {formatCurrency(totalBudget - totalSpent)}
+              <Text style={styles.overviewMeta}>
+                {totalSpent > totalBudget ? 'Over by ' : 'Left '}
+                <Text
+                  style={{
+                    color: totalSpent > totalBudget ? colors.expense : colors.income,
+                    fontWeight: '700',
+                  }}>
+                  {formatCurrency(Math.abs(totalBudget - totalSpent))}
                 </Text>
               </Text>
             </View>
             <ProgressBar
               progress={getProgress(totalSpent, totalBudget)}
-              color={colors.primary}
-              height={10}
+              color="rgba(244,247,246,0.9)"
+              height={8}
             />
-          </Card>
+          </View>
 
           {budgets.map(budget => {
             const progress = getProgress(budget.spent, budget.total);
-            const isOverBudget = progress >= 90;
+            const actualPct = budget.total ? (budget.spent / budget.total) * 100 : 0;
+            const isOver = budget.spent > budget.total;
+            const isNear = !isOver && actualPct >= 80;
+            const status = isOver
+              ? `Over by ${formatCurrency(budget.spent - budget.total)}`
+              : `${formatCurrency(budget.total - budget.spent)} left`;
+            const accent = budget.color?.startsWith('#')
+              ? budget.color
+              : colorForCategory(budget.category);
+            const iconName = iconFromCategory(budget.category, 'chart');
 
             return (
               <Card key={budget.id} style={styles.budgetCard}>
+                <View
+                  accessible
+                  accessibilityLabel={`${budget.category}: ${formatCurrency(budget.spent)} of ${formatCurrency(
+                    budget.total,
+                  )} spent, ${status}`}>
                 <View style={styles.budgetHeader}>
                   <View style={styles.budgetLeft}>
-                    <View style={[styles.budgetIcon, { backgroundColor: budget.color + '20' }]}>
-                      <Text style={styles.budgetEmoji}>{budget.icon}</Text>
+                    <View style={[styles.budgetIcon, { backgroundColor: accent + '20' }]}>
+                      <Icon name={iconName} size={18} color={accent} />
                     </View>
                     <View>
                       <Text style={styles.budgetCategory}>{budget.category}</Text>
                       <Text style={styles.budgetAmounts}>
-                        {formatCurrency(budget.spent)} / {formatCurrency(budget.total)}
+                        {formatCurrency(budget.spent)} of {formatCurrency(budget.total)} ·{' '}
+                        <Text style={isOver ? { color: colors.expense, fontWeight: '600' } : undefined}>
+                          {status}
+                        </Text>
                       </Text>
                     </View>
                   </View>
-                  <Text style={[styles.budgetPercent, isOverBudget && { color: colors.expense }]}>
-                    {progress.toFixed(0)}%
+                  <Text
+                    style={[
+                      styles.budgetPercent,
+                      (isOver || isNear) && { color: isOver ? colors.expense : colors.warning },
+                    ]}>
+                    {actualPct.toFixed(0)}%
                   </Text>
                 </View>
                 <ProgressBar
                   progress={progress}
-                  color={isOverBudget ? colors.expense : budget.color}
-                  height={8}
+                  color={isOver ? colors.expense : isNear ? colors.warning : accent}
+                  height={6}
                 />
+                </View>
               </Card>
             );
           })}
@@ -129,7 +172,7 @@ export const BudgetScreen: React.FC<Props> = ({ navigation }) => {
       )}
 
       <View style={styles.fabContainer}>
-        <Button title="+ Create Budget" onPress={() => navigation.navigate('CreateBudget')} />
+        <Button title="Create budget" onPress={() => navigation.navigate('CreateBudget')} />
       </View>
     </View>
   );
@@ -157,21 +200,23 @@ const styles = StyleSheet.create({
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: spacing.lg,
   },
   overviewCard: {
     marginBottom: spacing.lg,
     backgroundColor: colors.primary,
+    borderRadius: 18,
+    padding: spacing.lg,
   },
   overviewLabel: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    color: 'rgba(244,247,246,0.75)',
     marginBottom: 4,
   },
   overviewAmount: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.white,
+    ...typography.money,
+    fontSize: 30,
+    color: colors.textOnPrimary,
     marginBottom: spacing.sm,
   },
   overviewRow: {
@@ -179,13 +224,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.md,
   },
-  overviewSpent: {
+  overviewMeta: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
-  },
-  overviewRemaining: {
-    fontSize: 13,
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(244,247,246,0.8)',
   },
   budgetCard: {
     marginBottom: spacing.md,
@@ -200,36 +241,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    flex: 1,
   },
   budgetIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  budgetEmoji: {
-    fontSize: 20,
-  },
   budgetCategory: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.text,
+    ...typography.bodyStrong,
     marginBottom: 2,
   },
   budgetAmounts: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.caption,
   },
   budgetPercent: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.moneySm,
     color: colors.primary,
   },
+  // A footer bar rather than a floating button, so it never covers list items.
   fabContainer: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
-    right: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm + 4,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
 });

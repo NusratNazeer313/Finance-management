@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,19 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Alert,
-  ActivityIndicator,
+  TextInput,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
+import { Icon } from '../../components/Icon';
 import { colors } from '../../theme/colors';
 import { spacing } from '../../theme/spacing';
+import { typography } from '../../theme/typography';
 import { AuthStackParamList } from '../../navigation/types';
 import { authApi } from '../../services/finance';
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 type Props = {
   navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -24,25 +27,31 @@ type Props = {
 };
 
 export const LoginScreen: React.FC<Props> = ({ navigation, onLogin }) => {
-  const [email, setEmail] = useState('nusrat@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
+  const passwordRef = useRef<TextInput>(null);
 
   const handleLogin = async () => {
-    if (!email.trim() || !password) {
-      Alert.alert('Missing fields', 'Please enter email and password.');
-      return;
-    }
+    const found: typeof errors = {};
+    if (!email.trim()) found.email = 'Enter your email';
+    else if (!EMAIL_RE.test(email.trim())) found.email = 'Enter a valid email, like name@example.com';
+    if (!password) found.password = 'Enter your password';
+    setErrors(found);
+    if (Object.keys(found).length) return;
 
     try {
       setLoading(true);
       await authApi.login(email.trim(), password);
       onLogin();
     } catch (error) {
-      Alert.alert(
-        'Login failed',
-        error instanceof Error ? error.message : 'Unable to sign in',
-      );
+      setErrors({
+        form:
+          error instanceof Error && error.message
+            ? `${error.message}. Check your details and try again.`
+            : 'Unable to sign in. Check your connection and try again.',
+      });
     } finally {
       setLoading(false);
     }
@@ -58,61 +67,68 @@ export const LoginScreen: React.FC<Props> = ({ navigation, onLogin }) => {
         showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <View style={styles.logoSmall}>
-            <Text style={styles.logoIcon}>$</Text>
+            <Icon name="logo" size={28} color={colors.textOnPrimary} />
           </View>
-          <Text style={styles.title}>Welcome Back!</Text>
-          <Text style={styles.subtitle}>Sign in to manage your finances</Text>
+          <Text style={styles.brand}>Finance Manager</Text>
+          <Text style={styles.title}>Welcome back</Text>
+          <Text style={styles.subtitle}>Sign in to your everyday account</Text>
         </View>
 
         <View style={styles.form}>
+          {errors.form && (
+            <View style={styles.formError} accessibilityRole="alert" accessibilityLiveRegion="polite">
+              <Text style={styles.formErrorText}>{errors.form}</Text>
+            </View>
+          )}
           <Input
             label="Email"
-            placeholder="Enter your email"
+            placeholder="name@example.com"
             value={email}
-            onChangeText={setEmail}
+            onChangeText={v => {
+              setEmail(v);
+              if (errors.email || errors.form) setErrors({});
+            }}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
+            error={errors.email}
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            blurOnSubmit={false}
           />
           <Input
+            ref={passwordRef}
             label="Password"
             placeholder="Enter your password"
             value={password}
-            onChangeText={setPassword}
+            onChangeText={v => {
+              setPassword(v);
+              if (errors.password || errors.form) setErrors({});
+            }}
             secureTextEntry
+            autoComplete="password"
+            textContentType="password"
+            error={errors.password}
+            returnKeyType="go"
+            onSubmitEditing={handleLogin}
           />
           <TouchableOpacity
             style={styles.forgotBtn}
-            onPress={() => navigation.navigate('ForgotPassword')}>
+            onPress={() => navigation.navigate('ForgotPassword')}
+            accessibilityRole="link">
             <Text style={styles.forgotText}>Forgot Password?</Text>
           </TouchableOpacity>
 
-          {loading ? (
-            <ActivityIndicator color={colors.primary} style={styles.loginBtn} />
-          ) : (
-            <Button title="Login" onPress={handleLogin} style={styles.loginBtn} />
-          )}
-
-          <View style={styles.divider}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>or continue with</Text>
-            <View style={styles.dividerLine} />
-          </View>
-
-          <View style={styles.socialRow}>
-            <TouchableOpacity style={styles.socialBtn}>
-              <Text style={styles.socialIcon}>G</Text>
-              <Text style={styles.socialText}>Google</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.socialBtn}>
-              <Text style={styles.socialIcon}></Text>
-              <Text style={styles.socialText}>Apple</Text>
-            </TouchableOpacity>
-          </View>
+          <Button title="Sign in" onPress={handleLogin} loading={loading} style={styles.loginBtn} />
         </View>
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Don't have an account? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('SignUp')}
+            accessibilityRole="link"
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}>
             <Text style={styles.footerLink}>Sign Up</Text>
           </TouchableOpacity>
         </View>
@@ -122,9 +138,20 @@ export const LoginScreen: React.FC<Props> = ({ navigation, onLogin }) => {
 };
 
 const styles = StyleSheet.create({
+  formError: {
+    backgroundColor: colors.dangerLight,
+    borderRadius: 10,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+  },
+  formErrorText: {
+    color: colors.danger,
+    fontSize: 14,
+    fontWeight: '500',
+  },
   container: {
     flex: 1,
-    backgroundColor: colors.white,
+    backgroundColor: colors.background,
   },
   scroll: {
     flexGrow: 1,
@@ -139,25 +166,23 @@ const styles = StyleSheet.create({
   logoSmall: {
     width: 56,
     height: 56,
-    borderRadius: 14,
+    borderRadius: 16,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
-  logoIcon: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.white,
+  brand: {
+    ...typography.label,
+    color: colors.primaryLight,
+    marginBottom: spacing.sm,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: colors.text,
+    ...typography.title,
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 15,
+    ...typography.body,
     color: colors.textSecondary,
   },
   form: {
@@ -170,51 +195,11 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
+    color: colors.primaryLight,
+    fontWeight: '600',
   },
   loginBtn: {
     marginBottom: spacing.lg,
-  },
-  divider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginHorizontal: spacing.md,
-  },
-  socialRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  socialBtn: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    gap: spacing.sm,
-  },
-  socialIcon: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  socialText: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: colors.text,
   },
   footer: {
     flexDirection: 'row',

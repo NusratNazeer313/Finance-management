@@ -58,7 +58,9 @@ export const TransactionsScreen: React.FC<Props> = ({ navigation }) => {
 
   const filtered = useMemo(() => {
     return transactions.filter(tx => {
-      const matchesSearch = tx.title.toLowerCase().includes(search.toLowerCase());
+      const q = search.trim().toLowerCase();
+      const matchesSearch =
+        !q || tx.title.toLowerCase().includes(q) || tx.category.toLowerCase().includes(q);
       const matchesFilter = filter === 'all' || tx.type === filter;
       return matchesSearch && matchesFilter;
     });
@@ -86,9 +88,12 @@ export const TransactionsScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.searchContainer}>
         <Input
-          placeholder="Search transactions..."
+          placeholder="Search by name or category"
+          accessibilityLabel="Search transactions"
           value={search}
           onChangeText={setSearch}
+          returnKeyType="search"
+          clearButtonMode="while-editing"
           style={styles.searchInput}
         />
       </View>
@@ -98,7 +103,9 @@ export const TransactionsScreen: React.FC<Props> = ({ navigation }) => {
           <TouchableOpacity
             key={f.key}
             style={[styles.filterTab, filter === f.key && styles.filterTabActive]}
-            onPress={() => setFilter(f.key)}>
+            onPress={() => setFilter(f.key)}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: filter === f.key }}>
             <Text style={[styles.filterText, filter === f.key && styles.filterTextActive]}>
               {f.label}
             </Text>
@@ -122,12 +129,40 @@ export const TransactionsScreen: React.FC<Props> = ({ navigation }) => {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}>
+          {filtered.length === 0 && (
+            <View style={styles.empty}>
+              <Text style={styles.emptyTitle}>
+                {transactions.length === 0 ? 'No transactions yet' : 'No matches'}
+              </Text>
+              <Text style={styles.emptyText}>
+                {transactions.length === 0
+                  ? 'Add your first income or expense to start tracking.'
+                  : 'Try a different search or filter.'}
+              </Text>
+              {(search || filter !== 'all') && (
+                <TouchableOpacity
+                  onPress={() => {
+                    setSearch('');
+                    setFilter('all');
+                  }}
+                  accessibilityRole="button">
+                  <Text style={styles.retryText}>Clear search and filters</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
           {Object.entries(grouped).map(([date, items]) => (
             <View key={date} style={styles.group}>
-              <Text style={styles.groupDate}>{date}</Text>
+              <Text style={styles.groupDate} accessibilityRole="header">
+                {date}
+              </Text>
               <View style={styles.groupList}>
                 {items.map(tx => (
-                  <TransactionItem key={tx.id} transaction={tx} />
+                  <TransactionItem
+                    key={tx.id}
+                    transaction={tx}
+                    onPress={() => navigation.navigate('TransactionDetail', { transaction: tx })}
+                  />
                 ))}
               </View>
             </View>
@@ -137,7 +172,7 @@ export const TransactionsScreen: React.FC<Props> = ({ navigation }) => {
 
       <View style={styles.fabContainer}>
         <Button
-          title="+ Add Transaction"
+          title="Add transaction"
           onPress={() => navigation.navigate('AddTransaction', { type: 'expense' })}
         />
       </View>
@@ -181,42 +216,68 @@ const styles = StyleSheet.create({
   filterTab: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    borderRadius: 20,
+    borderRadius: 10,
     backgroundColor: colors.white,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
   },
   filterTabActive: {
     backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   filterText: {
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
     color: colors.textSecondary,
   },
   filterTextActive: {
-    color: colors.white,
+    color: colors.textOnPrimary,
   },
   scroll: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 100,
+    paddingBottom: spacing.lg,
   },
   group: {
     marginBottom: spacing.lg,
   },
   groupDate: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
     color: colors.textSecondary,
     marginBottom: spacing.sm,
   },
   groupList: {
     backgroundColor: colors.white,
-    borderRadius: 16,
+    borderRadius: 14,
     padding: spacing.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+  },
+  // A footer bar rather than a floating button, so it never covers list items.
+  empty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
   },
   fabContainer: {
-    position: 'absolute',
-    bottom: spacing.lg,
-    left: spacing.lg,
-    right: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm + 4,
+    paddingBottom: spacing.md,
+    backgroundColor: colors.background,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
   },
 });

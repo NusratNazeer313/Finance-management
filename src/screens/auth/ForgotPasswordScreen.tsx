@@ -21,8 +21,13 @@ type Props = {
 export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | undefined>();
 
   const handleSend = () => {
+    if (!email.trim()) return setError('Enter your email');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return setError('Enter a valid email, like name@example.com');
+    }
     setSent(true);
   };
 
@@ -30,7 +35,11 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+      <TouchableOpacity
+        style={styles.backBtn}
+        onPress={() => navigation.goBack()}
+        accessibilityRole="button"
+        accessibilityLabel="Go back">
         <Text style={styles.backText}>← Back</Text>
       </TouchableOpacity>
 
@@ -43,8 +52,8 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
         {sent ? (
           <View style={styles.successBox}>
             <Text style={styles.successIcon}>✉️</Text>
-            <Text style={styles.successText}>
-              Reset link sent! Check your email inbox.
+            <Text style={styles.successText} accessibilityLiveRegion="polite">
+              If an account exists for {email.trim()}, a reset link is on its way. Check your inbox.
             </Text>
           </View>
         ) : (
@@ -53,11 +62,18 @@ export const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
               label="Email"
               placeholder="Enter your email"
               value={email}
-              onChangeText={setEmail}
+              onChangeText={v => {
+                setEmail(v);
+                setError(undefined);
+              }}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="email"
+              error={error}
+              returnKeyType="send"
+              onSubmitEditing={handleSend}
             />
-            <Button title="Send Link" onPress={handleSend} />
+            <Button title="Send reset link" onPress={handleSend} />
           </>
         )}
       </View>

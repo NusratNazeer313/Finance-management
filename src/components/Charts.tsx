@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import Svg, { Polyline, Defs, LinearGradient, Stop } from 'react-native-svg';
+import Svg, { Polyline, Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { colors } from '../theme/colors';
 import { borderRadius } from '../theme/spacing';
 
@@ -64,35 +64,58 @@ export const HealthGauge: React.FC<HealthGaugeProps> = ({ score, size = 200 }) =
   };
 
   const scoreColor = getScoreColor(score);
+  const clamped = Math.max(0, Math.min(100, score));
   const strokeWidth = 14;
   const radius = (size - strokeWidth) / 2;
-  const circumference = Math.PI * radius;
-  const progress = (score / 100) * circumference;
+  const cx = size / 2;
+  const cy = radius + strokeWidth / 2;
+  const height = cy + strokeWidth / 2;
+
+  // Point on the semicircle: 0% = left end, 100% = right end, over the top.
+  const pointAt = (pct: number) => {
+    const angle = Math.PI * (1 - pct / 100);
+    return `${cx + radius * Math.cos(angle)} ${cy - radius * Math.sin(angle)}`;
+  };
+  const track = `M ${pointAt(0)} A ${radius} ${radius} 0 0 1 ${pointAt(100)}`;
+  const progress = `M ${pointAt(0)} A ${radius} ${radius} 0 0 1 ${pointAt(clamped)}`;
 
   return (
-    <View style={[styles.gaugeContainer, { width: size, height: size / 2 + 30 }]}>
-      <Svg width={size} height={size / 2 + strokeWidth} viewBox={`0 0 ${size} ${size / 2 + strokeWidth}`}>
-        <Polyline
-          points={`${strokeWidth / 2},${size / 2} ${size - strokeWidth / 2},${size / 2}`}
+    <View
+      style={[styles.gaugeContainer, { width: size, height: height + 8 }]}
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="Financial health score"
+      accessibilityValue={{ min: 0, max: 100, now: clamped, text: `${clamped} out of 100` }}>
+      <Svg width={size} height={height}>
+        <Path
+          d={track}
           fill="none"
           stroke={colors.border}
           strokeWidth={strokeWidth}
           strokeLinecap="round"
         />
-        <Polyline
-          points={`${strokeWidth / 2},${size / 2} ${strokeWidth / 2 + progress * (size - strokeWidth) / circumference},${size / 2 - Math.sin((score / 100) * Math.PI) * (size / 2 - strokeWidth)}`}
-          fill="none"
-          stroke={scoreColor}
-          strokeWidth={strokeWidth}
-          strokeLinecap="round"
-        />
+        {clamped > 0 && (
+          <Path
+            d={progress}
+            fill="none"
+            stroke={scoreColor}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+          />
+        )}
       </Svg>
       <View style={styles.scoreContainer}>
-        <Text style={[styles.score, { color: scoreColor }]}>{score}</Text>
+        <Text style={[styles.score, { color: scoreColor }]}>{clamped}</Text>
         <Text style={styles.scoreLabel}>/ 100</Text>
       </View>
     </View>
   );
+};
+
+export const healthLabel = (score: number): { label: string; color: string } => {
+  if (score >= 80) return { label: 'Good', color: colors.income };
+  if (score >= 60) return { label: 'Fair', color: colors.warning };
+  return { label: 'Needs attention', color: colors.expense };
 };
 
 const styles = StyleSheet.create({

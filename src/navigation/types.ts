@@ -1,3 +1,6 @@
+import { NavigatorScreenParams } from '@react-navigation/native';
+import { Transaction } from '../types';
+
 export type AuthStackParamList = {
   Splash: undefined;
   Onboarding: undefined;
@@ -15,11 +18,14 @@ export type AppTabParamList = {
 };
 
 export type RootStackParamList = {
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<AppTabParamList> | undefined;
   Profile: undefined;
   Bills: undefined;
   Reports: undefined;
-  AddTransaction: { type?: 'income' | 'expense' };
+  AddTransaction: { type?: 'income' | 'expense'; transaction?: Transaction };
+  TransactionDetail: { transaction: Transaction };
+  Notifications: undefined;
+  EditProfile: undefined;
   CreateBudget: undefined;
   CreateGoal: undefined;
   AddBill: undefined;

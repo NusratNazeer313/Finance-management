@@ -1,4 +1,13 @@
-import { Bill, Budget, Goal, Insight, Transaction, User } from '../types';
+import {
+  AppNotification,
+  Bill,
+  Budget,
+  Category,
+  Goal,
+  Insight,
+  Transaction,
+  User,
+} from '../types';
 import { apiRequest } from './api';
 
 export type AuthResponse = {
@@ -19,6 +28,7 @@ export type DashboardOverview = {
   };
   balanceChartData: number[];
   recentTransactions: Transaction[];
+  unreadNotifications: number;
 };
 
 export type InsightsResponse = {
@@ -27,10 +37,25 @@ export type InsightsResponse = {
   recommendation: string;
 };
 
+type MonthlyPoint = { month: string; amount: number };
+type CategoryTotal = { category: string; amount: number; color: string };
+
 export type ReportSummary = {
   balance: DashboardOverview['balance'];
-  expenseChartData: { month: string; amount: number }[];
-  categoryBreakdown: { category: string; amount: number; color: string }[];
+  expenseChartData: MonthlyPoint[];
+  incomeChartData: MonthlyPoint[];
+  netWorthChartData: number[];
+  categoryBreakdown: CategoryTotal[];
+  incomeBreakdown: CategoryTotal[];
+};
+
+export type TransactionInput = {
+  title?: string;
+  category: string;
+  amount: number;
+  type: 'income' | 'expense';
+  notes?: string;
+  date?: string;
 };
 
 export const authApi = {
@@ -52,18 +77,21 @@ export const dashboardApi = {
 
 export const transactionsApi = {
   list: () => apiRequest<Transaction[]>('/transactions'),
-  create: (payload: {
-    title?: string;
-    category: string;
-    amount: number;
-    type: 'income' | 'expense';
-    notes?: string;
-    date?: string;
-  }) =>
+  create: (payload: TransactionInput) =>
     apiRequest<Transaction>('/transactions', {
       method: 'POST',
       body: payload,
     }),
+  update: (id: string, payload: TransactionInput) =>
+    apiRequest<Transaction>(`/transactions/${id}`, {
+      method: 'PUT',
+      body: payload,
+    }),
+  remove: (id: string) => apiRequest<null>(`/transactions/${id}`, { method: 'DELETE' }),
+};
+
+export const categoriesApi = {
+  list: () => apiRequest<Category[]>('/categories'),
 };
 
 export const budgetsApi = {
@@ -77,7 +105,7 @@ export const budgetsApi = {
 
 export const goalsApi = {
   list: () => apiRequest<Goal[]>('/goals'),
-  create: (payload: { name: string; target: number }) =>
+  create: (payload: { name: string; target: number; current?: number }) =>
     apiRequest<Goal>('/goals', {
       method: 'POST',
       body: payload,
@@ -91,6 +119,18 @@ export const billsApi = {
       method: 'POST',
       body: payload,
     }),
+  setPaid: (id: string, paid: boolean) =>
+    apiRequest<Bill>(`/bills/${id}`, {
+      method: 'PATCH',
+      body: { paid },
+    }),
+  remove: (id: string) => apiRequest<null>(`/bills/${id}`, { method: 'DELETE' }),
+};
+
+export const notificationsApi = {
+  list: () => apiRequest<AppNotification[]>('/notifications'),
+  markAllRead: () =>
+    apiRequest<AppNotification[]>('/notifications/read-all', { method: 'POST' }),
 };
 
 export const insightsApi = {
@@ -103,4 +143,9 @@ export const reportsApi = {
 
 export const profileApi = {
   get: () => apiRequest<User>('/profile'),
+  update: (payload: { name: string }) =>
+    apiRequest<User>('/profile', {
+      method: 'PUT',
+      body: payload,
+    }),
 };

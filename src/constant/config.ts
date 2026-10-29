@@ -1,14 +1,39 @@
-import { Platform } from 'react-native';
+import { NativeModules, Platform } from 'react-native';
 
-// iOS Simulator → localhost
-// Android Emulator → 10.0.2.2 (host machine loopback)
-// Physical device → set your machine LAN IP below
-const DEV_LAN_IP = 'localhost';
+/**
+ * Deployed backend (Render). Used in release builds, and in dev too when
+ * USE_PROD_API is true.
+ */
+export const PROD_API_URL: string = '';
+const USE_PROD_API: boolean = false;
 
-const host = Platform.select({
-  ios: 'localhost',
-  android: '10.0.2.2',
-  default: DEV_LAN_IP,
-});
+/**
+ * Fallback only — used if the Metro host can't be detected.
+ * Find it with: `ipconfig getifaddr en0`
+ */
+export const DEV_LAN_IP = '10.202.18.193';
+export const API_PORT = 5001;
 
-export const API_BASE_URL = `http://${host}:5001/api`;
+/**
+ * In dev, the app is loaded from Metro running on your Mac, so the host in the
+ * bundle URL is already the right way to reach the Mac from this device:
+ * 10.0.2.2 on the Android emulator, localhost on the iOS simulator, and the
+ * Mac's LAN IP on a real phone. No need to edit anything when Wi‑Fi changes.
+ */
+function getDevHost(): string {
+  const sourceCode = NativeModules.SourceCode;
+  const scriptURL: string | undefined =
+    sourceCode?.getConstants?.().scriptURL ?? sourceCode?.scriptURL;
+  const match = scriptURL?.match(/^https?:\/\/([^/:]+)/);
+  return match?.[1] ?? DEV_LAN_IP;
+}
+
+export const API_BASE_URL =
+  (!__DEV__ || USE_PROD_API) && PROD_API_URL
+    ? `${PROD_API_URL.replace(/\/$/, '')}/api`
+    : `http://${getDevHost()}:${API_PORT}/api`;
+
+if (__DEV__) {
+  // eslint-disable-next-line no-console
+  console.log(`[API] ${Platform.OS} → ${API_BASE_URL}`);
+}
